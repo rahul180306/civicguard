@@ -1,0 +1,113 @@
+{
+	"$schema": "https://json.schemastore.org/tasks.json",
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Frontend: install",
+			"type": "shell",
+			"command": "npm install",
+			"options": {
+				"cwd": "d:\\civicguard\\frontend"
+			},
+			"group": "none",
+			"problemMatcher": []
+		},
+		{
+			"label": "Frontend: dev",
+			"type": "shell",
+			"command": "npm run dev",
+			"options": {
+				"cwd": "d:\\civicguard\\frontend"
+			},
+			"isBackground": true,
+			"group": "none",
+			"problemMatcher": []
+		},
+		{
+			"label": "Backend: install",
+			"type": "shell",
+			"command": "if (!(Test-Path 'd:\\civicguard\\backend\\.venv\\Scripts\\python.exe')) { python -m venv 'd:\\civicguard\\backend\\.venv' }; & 'd:\\civicguard\\backend\\.venv\\Scripts\\python.exe' -m pip install -r 'd:\\civicguard\\backend\\requirements.txt'",
+			"group": "none",
+			"problemMatcher": []
+		},
+		{
+			"label": "Backend: dev",
+			"type": "shell",
+			"command": "& 'd:\\civicguard\\backend\\.venv\\Scripts\\python.exe' -m uvicorn app:app --reload --port 8000",
+			"options": {
+				"cwd": "d:\\civicguard\\backend"
+			},
+			"isBackground": true,
+			"group": "none",
+			"problemMatcher": []
+		},
+		{
+			"label": "Worker: rq",
+			"type": "shell",
+			"command": "& 'd:\\civicguard\\backend\\.venv\\Scripts\\rq.exe' worker -w rq.worker.SimpleWorker file_jobs",
+			"options": {
+				"cwd": "d:\\civicguard\\backend",
+				"env": {
+					"PYTHONPATH": "d:\\civicguard\\backend"
+				}
+			},
+			"isBackground": true,
+			"group": "none",
+			"problemMatcher": []
+		},
+		{
+			"label": "Infra: up",
+			"type": "shell",
+			"command": "docker compose --env-file 'd:\\civicguard\\infra\\.env' -f 'd:\\civicguard\\infra\\docker-compose.yml' up -d",
+			"problemMatcher": []
+		},
+		{
+			"label": "Infra: down",
+			"type": "shell",
+			"command": "docker compose -f 'd:\\civicguard\\infra\\docker-compose.yml' down",
+			"problemMatcher": []
+		},
+		{
+			"label": "Dev: all",
+			"type": "shell",
+			"command": "echo Starting frontend, backend, and infra...",
+			"dependsOn": [
+				"Infra: up",
+				"Frontend: dev",
+				"Backend: dev",
+				"Worker: rq"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "Mock: authority",
+			"type": "shell",
+			"command": "& 'd:\\civicguard\\backend\\.venv\\Scripts\\python.exe' -m uvicorn mock_authority:app --port 8081 --reload",
+			"options": {
+				"cwd": "d:\\civicguard\\backend"
+			},
+			"isBackground": true,
+			"group": "none",
+			"problemMatcher": []
+		},
+		{
+			"label": "Frontend: dev (fresh)",
+			"type": "shell",
+			"command": "if (Test-Path '.\\.next') { Remove-Item -Recurse -Force '.\\.next' }; npm run dev",
+			"options": {
+				"cwd": "d:\\civicguard\\frontend"
+			}
+		},
+		{
+			"label": "Backend: run tests",
+			"type": "shell",
+			"command": "$ErrorActionPreference='Stop'; cd 'd:\\civicguard\\backend'; & '.\\.venv\\Scripts\\python.exe' -m pip install -r requirements.txt; & '.\\.venv\\Scripts\\python.exe' -m pytest -q"
+		},
+		{
+			"label": "Backend: install (fallback)",
+			"type": "shell",
+			"command": "if (!(Test-Path 'd:\\civicguard\\backend\\.venv\\Scripts\\python.exe')) { python -m venv 'd:\\civicguard\\backend\\.venv' }; & 'd:\\civicguard\\backend\\.venv\\Scripts\\python.exe' -m pip install -r 'd:\\civicguard\\backend\\requirements.txt'",
+			"group": "none"
+		}
+	]
+}

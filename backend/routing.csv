@@ -1,0 +1,4 @@
+class,ward,authority_name,endpoint_type,endpoint_value
+pothole,Ward-1,Highways Dept,email,highways-helpdesk@example.com
+garbage,Ward-1,Sanitation Dept,email,sanitation@example.com
+streetlight,Ward-1,Electrical Dept,api,http://localhost:8081/mock-authority

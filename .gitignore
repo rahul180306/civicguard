@@ -1,0 +1,51 @@
+# Node
+node_modules/
+.next/
+out/
+dist/
+# package managers
+pnpm-lock.yaml
+yarn.lock
+
+# Python
+.venv/
+**/.venv/
+backend/.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+backend/dev.db
+
+# Backend media (keep dir only)
+backend/media/
+!backend/media/.gitkeep
+
+# Backend env
+backend/.env
+infra/.env
+
+# Env files
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/*.log
+
+# Infra data volumes (avoid committing service data)
+infra/data/
+infra/data/**/*
+
+# Frontend deployment artifacts
+frontend/.vercel/
+
+backend/dev.db
+backend/media/
+!backend/media/.gitkeep
+infra/data/
+infra/data/**/*
+frontend/.vercel/
+
