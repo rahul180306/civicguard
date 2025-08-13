@@ -290,7 +290,7 @@ async def debug_cors():
     }
 
 
-@app.post("/admin/fix-media-urls")
+@app.api_route("/admin/fix-media-urls", methods=["GET", "POST"]) 
 async def fix_media_urls(dry_run: bool = True):
     """Replace media_url starting with http://localhost:8000 with BACKEND_PUBLIC_URL.
     dry_run=true just reports counts; dry_run=false commits changes.
