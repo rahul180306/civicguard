@@ -8,6 +8,7 @@ import exifread
 import io
 import hashlib
 import os
+import logging
 import uuid
 import shutil
 from dotenv import load_dotenv
@@ -22,13 +23,28 @@ from agents.geo import reverse_geocode, exif_gps_from_file
 from agents.geo import _reverse_geocode_mapbox, _reverse_geocode_nominatim  # test-only provider introspection
 from workers.queue import file_queue
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("civicguard")
+
 app = FastAPI(title="CivicGuard API")
 
-origins = [
+"""CORS configuration
+In development we allow localhost origins. In production, define ALLOWED_ORIGINS
+as a comma-separated list (e.g. ALLOWED_ORIGINS=https://civicguard-xxx.vercel.app)
+so we do not rely on a wildcard.
+"""
+
+default_origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "*",  # dev: allow all; tighten later
 ]
+
+env_origins = os.getenv("ALLOWED_ORIGINS")
+if env_origins:
+    origins = [o.strip() for o in env_origins.split(",") if o.strip()]
+else:
+    # Fallback to dev defaults only (no '*')
+    origins = default_origins
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,6 +53,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+logger.info("CORS origins configured: %s", origins)
 
 # Serve uploaded files (dev)
 MEDIA_DIR = os.path.join(os.path.dirname(__file__), "..", "media")
@@ -202,7 +219,11 @@ async def intake(
     lng: float | None = Form(None),
     contact: str | None = Form(None),
 ):
-    key, file_url = save_upload(image)
+    try:
+        key, file_url = save_upload(image)
+    except Exception as e:
+        logger.exception("save_upload failed, returning 500")
+        raise HTTPException(status_code=500, detail="Upload failed")
     local_media_path = os.path.join(os.path.dirname(__file__), "..", "media", key)
 
     iclass, severity, conf = classify(image.filename or "")
@@ -255,3 +276,44 @@ async def get_ticket(tid: str):
 @app.get("/api/tickets")
 async def list_tickets(limit: int = 50, offset: int = 0, status: Optional[str] = None, iclass: Optional[str] = None):
     return TicketRepo.list(limit=limit, offset=offset, status=status, iclass=iclass)
+
+
+@app.get("/debug/cors")
+async def debug_cors():
+    """Temporary diagnostic endpoint to view effective CORS settings in runtime.
+    Remove this in production once CORS issue is resolved.
+    """
+    return {
+        "configured_origins": origins,
+        "env_raw": os.getenv("ALLOWED_ORIGINS"),
+        "note": "If your frontend origin is not exactly in configured_origins (string match), CORS will fail."
+    }
+
+
+@app.post("/admin/fix-media-urls")
+async def fix_media_urls(dry_run: bool = True):
+    """Replace media_url starting with http://localhost:8000 with BACKEND_PUBLIC_URL.
+    dry_run=true just reports counts; dry_run=false commits changes.
+    TEMP maintenance endpoint; remove after cleanup.
+    """
+    backend_base = os.getenv("BACKEND_PUBLIC_URL") or "https://civicguard-backend.onrender.com"
+    old_prefix = "http://localhost:8000"
+    from db.session import get_session
+    from db.models import Ticket
+    db = get_session()
+    updated = 0
+    total = 0
+    try:
+        rows = db.query(Ticket).all()
+        total = len(rows)
+        for r in rows:
+            if r.media_url and r.media_url.startswith(old_prefix):
+                new_url = r.media_url.replace(old_prefix, backend_base, 1)
+                if not dry_run:
+                    r.media_url = new_url
+                updated += 1
+        if not dry_run and updated:
+            db.commit()
+        return {"total": total, "would_update": updated, "updated": 0 if dry_run else updated, "backend_base": backend_base, "dry_run": dry_run}
+    finally:
+        db.close()

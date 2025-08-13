@@ -44,19 +44,25 @@ def save_upload(upload_file) -> Tuple[str, str]:
     bucket = os.getenv("MINIO_BUCKET", "uploads")
     public_base = os.getenv("MINIO_PUBLIC_URL", os.getenv("MINIO_ENDPOINT", "http://localhost:9000"))
     if s3:
-        # Ensure stream at beginning
         try:
-            upload_file.file.seek(0)
+            # Ensure stream at beginning
+            try:
+                upload_file.file.seek(0)
+            except Exception:
+                pass
+            extra = {"ContentType": getattr(upload_file, "content_type", "application/octet-stream")}
+            s3.upload_fileobj(upload_file.file, bucket, key, ExtraArgs=extra)
+            # Assume bucket is anonymously readable per infra/minio-init
+            url = f"{public_base.rstrip('/')}/{bucket}/{key}"
+            return key, url
         except Exception:
+            # MinIO/S3 failed: continue with local fallback
             pass
-        extra = {"ContentType": getattr(upload_file, "content_type", "application/octet-stream")}
-        s3.upload_fileobj(upload_file.file, bucket, key, ExtraArgs=extra)
-        # Assume bucket is anonymously readable per infra/minio-init
-        url = f"{public_base.rstrip('/')}/{bucket}/{key}"
-        return key, url
 
     # Fallback to local FS
     path = os.path.join(MEDIA_DIR, key)
     with open(path, "wb") as f:
         shutil.copyfileobj(upload_file.file, f)
-    return key, f"http://localhost:8000/media/{key}"
+    # Use configured backend public URL if provided so production links are correct
+    backend_base = os.getenv("BACKEND_PUBLIC_URL") or "http://localhost:8000"
+    return key, f"{backend_base.rstrip('/')}/media/{key}"
