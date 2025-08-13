@@ -220,49 +220,70 @@ async def intake(
     contact: str | None = Form(None),
 ):
     try:
-        key, file_url = save_upload(image)
-    except Exception as e:
-        logger.exception("save_upload failed, returning 500")
-        raise HTTPException(status_code=500, detail="Upload failed")
-    local_media_path = os.path.join(os.path.dirname(__file__), "..", "media", key)
+        # Save file (MinIO or local) and build URL
+        try:
+            key, file_url = save_upload(image)
+        except Exception:
+            logger.exception("save_upload failed")
+            raise HTTPException(status_code=500, detail="Upload failed")
 
-    iclass, severity, conf = classify(image.filename or "")
+        local_media_path = os.path.join(os.path.dirname(__file__), "..", "media", key)
 
-    if lat is None or lng is None:
-        gps = exif_gps_from_file(local_media_path)
-        if gps:
-            lat, lng = gps
+        # Lightweight classification (filename-based)
+        iclass, severity, conf = classify(image.filename or "")
 
-    address = reverse_geocode(lat, lng) if (lat is not None and lng is not None) else "Unknown"
+        # Autofill coordinates from EXIF if not provided
+        if lat is None or lng is None:
+            try:
+                gps = exif_gps_from_file(local_media_path)
+                if gps:
+                    lat, lng = gps
+            except Exception:
+                logger.info("EXIF GPS read failed", exc_info=True)
 
-    tid = str(uuid.uuid4())
-    TicketRepo.create({
-        "id": tid,
-        "iclass": iclass,
-        "severity": severity,
-        "lat": lat,
-        "lng": lng,
-        "address": address,
-        "status": "CREATED",
-        "contact": contact,
-        "media_url": file_url,
-    })
+        # Reverse geocode (best-effort)
+        try:
+            address = reverse_geocode(lat, lng) if (lat is not None and lng is not None) else "Unknown"
+        except Exception:
+            logger.info("reverse_geocode failed", exc_info=True)
+            address = "Unknown"
 
-    file_queue.enqueue("workers.jobs.file_to_authority", tid, file_url, iclass, address, contact)
+        tid = str(uuid.uuid4())
+        TicketRepo.create({
+            "id": tid,
+            "iclass": iclass,
+            "severity": severity,
+            "lat": lat,
+            "lng": lng,
+            "address": address,
+            "status": "CREATED",
+            "contact": contact,
+            "media_url": file_url,
+        })
 
-    return {
-        "id": tid,
-        "file_url": file_url,
-        "class": iclass,
-        "severity": severity,
-        "confidence": round(conf, 3),
-        "lat": lat,
-        "lng": lng,
-        "address": address,
-        "note": note,
-        "contact": contact,
-        "status": "CREATED",
-    }
+        try:
+            file_queue.enqueue("workers.jobs.file_to_authority", tid, file_url, iclass, address, contact)
+        except Exception:
+            logger.info("Queue enqueue failed (non-fatal)", exc_info=True)
+
+        return {
+            "id": tid,
+            "file_url": file_url,
+            "class": iclass,
+            "severity": severity,
+            "confidence": round(conf, 3),
+            "lat": lat,
+            "lng": lng,
+            "address": address,
+            "note": note,
+            "contact": contact,
+            "status": "CREATED",
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("intake failed")
+        raise HTTPException(status_code=500, detail="Intake failed")
 
 
 @app.get("/api/tickets/{tid}")
