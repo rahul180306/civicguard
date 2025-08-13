@@ -302,18 +302,37 @@ async def fix_media_urls(dry_run: bool = True):
     from db.models import Ticket
     db = get_session()
     updated = 0
+    cleared = 0
     total = 0
     try:
         rows = db.query(Ticket).all()
         total = len(rows)
         for r in rows:
-            if r.media_url and r.media_url.startswith(old_prefix):
-                new_url = r.media_url.replace(old_prefix, backend_base, 1)
+            mu = r.media_url
+            if not mu:
+                continue
+            # Fix localhost prefix
+            if mu.startswith(old_prefix):
+                new_url = mu.replace(old_prefix, backend_base, 1)
                 if not dry_run:
                     r.media_url = new_url
                 updated += 1
-        if not dry_run and updated:
+                continue
+            # Clear invalid/ellipsis URLs so frontend doesn't try to fetch …
+            trimmed = mu.strip()
+            if trimmed in ("…", "...") or not (trimmed.startswith("http://") or trimmed.startswith("https://")):
+                if not dry_run:
+                    r.media_url = None
+                cleared += 1
+        if not dry_run and (updated or cleared):
             db.commit()
-        return {"total": total, "would_update": updated, "updated": 0 if dry_run else updated, "backend_base": backend_base, "dry_run": dry_run}
+        return {
+            "total": total,
+            "would_update": updated,
+            "updated": 0 if dry_run else updated,
+            "cleared_invalid": cleared if dry_run else cleared,
+            "backend_base": backend_base,
+            "dry_run": dry_run,
+        }
     finally:
         db.close()
