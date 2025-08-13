@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useState } from 'react'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8000'
+const API_BASE = '' // use Next.js proxy under /api
 
 function Stat({ label, value, tone = 'default', delay = 0, solid = false }: { label: string; value: string; tone?: 'default'|'blue'|'amber'|'mint'|'green'; delay?: number; solid?: boolean }) {
   const toneClass = tone === 'blue' ? 'from-[#d3e1fa]/30'
@@ -35,7 +35,7 @@ export default function StatsClient() {
     let cancelled = false
     const fetchStats = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/stats`, { cache: 'no-store' })
+  const res = await fetch(`/api/stats`, { cache: 'no-store' })
         if (!res.ok) return
         const j = await res.json()
         if (!cancelled) {

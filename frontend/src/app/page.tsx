@@ -22,6 +22,7 @@ function Stat({ label, value, tone = 'default', delay = 0, solid = false }: { la
 }
 
 import dynamic from 'next/dynamic'
+import Link from 'next/link'
 const StatsClient = dynamic(() => import('@/components/StatsClient'), { ssr: false })
 
 export default function HomePage() {
@@ -32,7 +33,7 @@ export default function HomePage() {
       <div className="grid gap-4 md:grid-cols-3">
         <div className="card p-4 space-y-4 hover-lift animate-in">
           <div className="text-gray-400 text-sm">Quick actions</div>
-          <a className="btn-white w-full text-center" href="/intake">Report an issue</a>
+          <Link className="btn-white w-full text-center" href="/intake">Report an issue</Link>
           <a className="btn-muted w-full text-center" href="/track">Track a ticket</a>
           <div className="text-[10px] text-gray-500">Tip: drag & drop a photo on the Report page.</div>
         </div>

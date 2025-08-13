@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 const MapClient = dynamic(() => import('@/components/MapClient'), { ssr: false })
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8000'
+const API_BASE = '' // use same-origin API routes
 
 export default function IntakePage() {
   const [image, setImage] = useState<File | null>(null)
@@ -114,7 +114,7 @@ export default function IntakePage() {
       if (lat) fd.append('lat', lat)
       if (lng) fd.append('lng', lng)
 
-      const res = await fetch(`${API_BASE}/api/intake`, { method: 'POST', body: fd })
+  const res = await fetch(`/api/intake`, { method: 'POST', body: fd })
       if (!res.ok) {
         const txt = await res.text()
         throw new Error(`Upload failed (${res.status}): ${txt}`)
@@ -131,8 +131,7 @@ export default function IntakePage() {
   // Reverse-geocode when lat/lng change (best-effort)
   const geocode = async (la: number, lo: number) => {
     try {
-      const base = process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8000'
-      const res = await fetch(`${base}/test-geocode?lat=${la}&lng=${lo}`)
+  const res = await fetch(`/api/test-geocode?lat=${la}&lng=${lo}`)
       if (res.ok) {
         const j = await res.json()
         if (j && j.address) setAddr(j.address)

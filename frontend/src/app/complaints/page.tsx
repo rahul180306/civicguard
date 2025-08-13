@@ -15,7 +15,7 @@ type Ticket = {
   created_at?: string
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8000'
+const API_BASE = '' // use Next.js proxy under /api
 const STATUS_OPTS = ['', 'CREATED', 'FILING', 'FILED', 'RESOLVED', 'FAILED']
 const ICLASS_OPTS = ['', 'pothole', 'garbage', 'streetlight', 'water_leak', 'illegal_parking', 'stray_animals']
 
@@ -36,7 +36,7 @@ export default function ComplaintsPage() {
         if (status) qs.set('status', status)
         if (iclass) qs.set('iclass', iclass)
         qs.set('limit', '100')
-        const res = await fetch(`${API_BASE}/api/tickets?${qs.toString()}`, { cache: 'no-store' })
+  const res = await fetch(`/api/tickets?${qs.toString()}`, { cache: 'no-store' })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const j = await res.json()
         const items: Ticket[] = Array.isArray(j) ? j : (j.items || [])
