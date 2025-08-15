@@ -318,12 +318,18 @@ async def fix_media_urls(dry_run: bool = True):
     TEMP maintenance endpoint; remove after cleanup.
     """
     backend_base = os.getenv("BACKEND_PUBLIC_URL") or "https://civicguard-backend.onrender.com"
-    old_prefix = "http://localhost:8000"
+    old_prefixes = [
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "https://localhost:8000",
+        "https://127.0.0.1:8000",
+    ]
     from db.session import get_session
     from db.models import Ticket
     db = get_session()
     updated = 0
     cleared = 0
+    cleared_media_dir = 0
     total = 0
     try:
         rows = db.query(Ticket).all()
@@ -332,13 +338,27 @@ async def fix_media_urls(dry_run: bool = True):
             mu = r.media_url
             if not mu:
                 continue
-            # Fix localhost prefix
-            if mu.startswith(old_prefix):
-                new_url = mu.replace(old_prefix, backend_base, 1)
-                if not dry_run:
-                    r.media_url = new_url
-                updated += 1
-                continue
+            # Fix localhost/127 prefix
+            for op in old_prefixes:
+                if mu.startswith(op):
+                    new_url = mu.replace(op, backend_base, 1)
+                    if not dry_run:
+                        r.media_url = new_url
+                    updated += 1
+                    mu = new_url
+                    break
+            # Clear URLs that point only to /media or /media/
+            try:
+                from urllib.parse import urlparse
+                parsed = urlparse(mu)
+                path = (parsed.path or "").rstrip("/")
+                if path.endswith("/media"):
+                    if not dry_run:
+                        r.media_url = None
+                    cleared_media_dir += 1
+                    continue
+            except Exception:
+                pass
             # Clear invalid/ellipsis URLs so frontend doesn't try to fetch …
             trimmed = mu.strip()
             if trimmed in ("…", "...") or not (trimmed.startswith("http://") or trimmed.startswith("https://")):
@@ -352,6 +372,7 @@ async def fix_media_urls(dry_run: bool = True):
             "would_update": updated,
             "updated": 0 if dry_run else updated,
             "cleared_invalid": cleared if dry_run else cleared,
+            "cleared_media_dir": cleared_media_dir if dry_run else cleared_media_dir,
             "backend_base": backend_base,
             "dry_run": dry_run,
         }
